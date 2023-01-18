@@ -30,7 +30,7 @@ extern_lib rust_ffi (pkg : Package) := do
   return (pure tgtPath)
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "067e607b036e12671380189eb2542bb96ab458bf"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "649368d593f292227ab39b9fd08f6a448770dca8"
 
 require LSpec from git
   "https://github.com/yatima-inc/lspec/" @ "88f7d23e56a061d32c7173cea5befa4b2c248b41"
