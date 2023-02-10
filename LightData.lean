@@ -75,7 +75,8 @@ def ofNat (x : Nat) : LightData :=
   if x < UInt8.size then u8 (.ofNat x)
   else if x < UInt16.size then u16 (.ofNat x)
   else if x < UInt32.size then u32 (.ofNat x)
-  else u64 (.ofNat x) -- may overflow
+  else if x < UInt64.size then u64 (.ofNat x)
+  else byt x.toByteArrayLE
 
 instance : Encodable LightData LightData ε := ⟨id, pure⟩
 
@@ -87,6 +88,7 @@ instance : Encodable Nat LightData String where
   encode := ofNat
   decode
     | u8 x | u16 x | u32 x | u64 x => pure x.toNat
+    | byt bs => pure bs.asLEtoNat
     | x => throw s!"Expected a numeric value but got {x}"
 
 instance : Encodable String LightData String where
