@@ -1,20 +1,20 @@
 import LSpec
 import LightData
 
-def data : List LightData := [
-  .atom default, .cell default,
-  true, false, 0, 1, 255, 256, 300, 300000, "", "aaa", "\\", "\"",
-  .atom ⟨#[1, 2, 3]⟩, .cell #[.atom ⟨#[1, 2, 3]⟩],
-  (none : Option Nat), some 3, some (some 2), ("ars", 3, some #[3]),
-  (.left 1 : Either Nat String), (.right #[3] : Either Nat (Array Nat)),
-  .cell #[true, false, 0, 1, 255, 256, 300, 300000, "", "aaa", "\\", "\""],
-  .cell #[.cell #[false, .cell #[true, 1, "hello", "world"]]]
-]
-
 open LSpec
 
+variable [Encodable α LightData] [BEq α] [ToString α]
+
+def mkRoundtripTests (as : List α) : TestSeq :=
+  as.foldl (init := .done) fun tSeq a =>
+    tSeq ++ withExceptOk s!"{a} deserializes" (LightData.roundtrip a)
+      fun a' => test s!"{a} roundtrips" (a == a')
+
 def main := lspecIO $
-  data.foldl (init := .done) fun tSeq d =>
-  let bytes := d.toByteArray
-  tSeq ++ withExceptOk s!"{d} deserializes" (LightData.ofByteArray bytes)
-    fun d' => test s!"{d} roundtrips" (d == d')
+  mkRoundtripTests [false, true] ++
+  mkRoundtripTests [0, 1, UInt64.size, UInt64.size.succ] ++
+  mkRoundtripTests ["", "aaa", "\\", "\""] ++
+  mkRoundtripTests [#[0, 1, 2, 3], #[]] ++
+  mkRoundtripTests [#[#[1, 2, 3]], #[#[]]] ++
+  mkRoundtripTests [none, some 2] ++
+  mkRoundtripTests [none, some #["hi", "bye"]]

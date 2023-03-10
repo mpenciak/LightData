@@ -168,10 +168,10 @@ def readUInt8 : OfBytesM UInt8 := do
 
 def readTag : OfBytesM (Bool × Bool × Nat) := do
   let x ← readUInt8
-  let ctorBit : Bool := Nat.land x.val 0b10000000 == 0b10000000
-  let smallBit : Bool := (Nat.land x.val 0b01000000) == 0b01000000
-  let size := (Nat.land x.val 0b00111111)
-  let size := if smallBit && size == 0 then 64 else size
+  let ctorBit : Bool := x.land 0b10000000 == 0b10000000
+  let smallBit : Bool := x.land 0b01000000 == 0b01000000
+  let size := x.land 0b00111111
+  let size := if smallBit && size == 0 then (64 : Nat) else size.val
   return (ctorBit, smallBit, size)
 
 def readByteVector (n : Nat) : OfBytesM $ ByteVector n := do
