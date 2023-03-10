@@ -1,6 +1,6 @@
 import YatimaStdLib.ByteArray
 import YatimaStdLib.ByteVector
-import YatimaStdLib.DataClasses
+import YatimaStdLib.Encodable
 import YatimaStdLib.Either
 
 inductive LightData
@@ -29,82 +29,80 @@ partial def toString : LightData → String
 
 instance : ToString LightData := ⟨toString⟩
 
-section Encoding
+section EncodableInstances
+
+instance : Encodable LightData LightData := ⟨id, pure⟩
 
 def ofNat (x : Nat) : LightData := atom x.toByteArrayLE
 
-instance : Encodable LightData LightData ε := ⟨id, pure⟩
+instance : OfNat LightData n := ⟨.ofNat n⟩
 
-instance : Encodable Bool LightData String where
+instance : Encodable Bool LightData where
   encode
-    | Bool.true => ofNat 1
-    | Bool.false => ofNat 0
+    | false => ofNat 0
+    | true  => ofNat 1
   decode
     | atom x => match x.asLEtoNat with
-      | 0 => pure Bool.false
-      | 1 => pure Bool.true
+      | 0 => pure false
+      | 1 => pure true
       | _ => throw s!"Expected a boolean but got {x}"
     | x => throw s!"Expected a boolean but got {x}"
 
-instance : Encodable Nat LightData String where
+instance : Encodable Nat LightData where
   encode := ofNat
   decode
     | atom bs => pure bs.asLEtoNat
     | x => throw s!"Expected a numeric value but got {x}"
 
-instance : Encodable String LightData String where
+instance : Encodable String LightData where
   encode (s: String) := .atom s.toUTF8
   decode
     | atom x => pure (String.fromUTF8Unchecked x)
     | x => throw s!"Expected a string but got {x}"
 
-instance : Encodable ByteArray LightData String where
+instance : Encodable ByteArray LightData where
   encode := atom
   decode | atom x => pure x | x => throw s!"Expected a atome cellay but got {x}"
 
 variable
-  [hα : Encodable α LightData String]
-  [hβ : Encodable β LightData String]
+  [hα : Encodable α LightData]
+  [hβ : Encodable β LightData]
 
-instance : Encodable (Array α) LightData String where
+instance : Encodable (Array α) LightData where
   encode x := cell $ x.map hα.encode
   decode
     | cell x => x.mapM hα.decode
     | x => throw s!"Expected an cellay but got {x}"
 
-instance : Encodable (List α) LightData String where
+instance : Encodable (List α) LightData where
   encode x := cell $ .mk $ x.map hα.encode
   decode
     | cell x => x.data.mapM hα.decode
     | x => throw s!"Expected a list but got {x}"
 
-instance : Encodable (Option α) LightData String where
-  encode | none => cell #[] | some a => cell $ #[hα.encode a]
+instance : Encodable (Option α) LightData where
+  encode | none => 0 | some a => cell $ #[hα.encode a]
   decode
-    | cell #[] => pure none
+    | 0 => pure none
     | cell $ #[x] => return some (← hα.decode x)
     | x => throw s!"Expected an option but got {x}"
 
-instance : Encodable (α × β) LightData String where
+instance : Encodable (α × β) LightData where
   encode | (a, b) => cell #[hα.encode a, hβ.encode b]
   decode
     | cell #[a, b] => return (← hα.decode a, ← hβ.decode b)
     | x => throw s!"Expected a product but got {x}"
 
-instance : Encodable (Either α β) LightData String where
+instance : Encodable (Either α β) LightData where
   encode
-    | .left  x => cell #[false, hα.encode x]
-    | .right x => cell #[true, hβ.encode x]
+    | .left  x => cell #[0, hα.encode x]
+    | .right x => cell #[1,  hβ.encode x]
   decode
-    | cell #[b, x] => do
-      let b : Bool ← Encodable.decode b
-      if b then return .right (← hβ.decode x)
-      else return .left (← hα.decode x)
+    | cell #[0, x] => return .left (← hα.decode x)
+    | cell #[1,  x] => return .right (← hβ.decode x)
     | x => throw s!"Expected an either but got {x}"
 
-instance : OfNat LightData n := ⟨.ofNat n⟩
-
-end Encoding
+end EncodableInstances
 
 section SerDe
 
@@ -188,14 +186,14 @@ def readByteVector (n : Nat) : OfBytesM $ ByteVector n := do
 
 partial def readLightData : OfBytesM LightData := do
   match ← readTag with
-  | (.false, .true, size) => return atom (← readByteVector size).1
-  | (.false, .false, x) => do
+  | (false, true, size) => return atom (← readByteVector size).1
+  | (false, false, x) => do
     let size := (← readByteVector x).data.asLEtoNat
     return atom (← readByteVector size).1
-  | (.true, .true, size) =>
+  | (true, true, size) =>
     return cell $ ← List.range size |>.foldlM (init := #[])
       fun acc _ => do pure $ acc.push (← readLightData)
-  | (.true, .false, x) => do
+  | (true, false, x) => do
     let size := (← readByteVector x).data.asLEtoNat
     return cell $ ← List.range size |>.foldlM (init := #[])
       fun acc _ => do pure $ acc.push (← readLightData)
@@ -203,10 +201,10 @@ partial def readLightData : OfBytesM LightData := do
 def ofByteArray (bytes : ByteArray) : Except String LightData :=
   (StateT.run (ReaderT.run readLightData ⟨bytes, bytes.size, rfl⟩) 0).1
 
-def roundtrip [Encodable α LightData String] (x: α) : Except String α := do
+def roundtrip [Encodable α LightData] (x: α) : Except String α := do
   ofByteArray (toByteArray (Encodable.encode x)) >>= Encodable.decode
 
-instance : Encodable LightData ByteArray String where
+instance : Encodable LightData ByteArray where
   encode := toByteArray
   decode := ofByteArray
 
