@@ -39,13 +39,11 @@ instance : OfNat LightData n := ⟨.ofNat n⟩
 
 instance : Encodable Bool LightData where
   encode
-    | false => ofNat 0
-    | true  => ofNat 1
+    | false => atom default
+    | true  => cell default
   decode
-    | atom x => match x.asLEtoNat with
-      | 0 => pure false
-      | 1 => pure true
-      | _ => throw s!"Expected a boolean but got {x}"
+    | atom ⟨#[]⟩ => pure false
+    | cell #[]   => pure true
     | x => throw s!"Expected a boolean but got {x}"
 
 instance : Encodable Nat LightData where
@@ -55,9 +53,9 @@ instance : Encodable Nat LightData where
     | x => throw s!"Expected a numeric value but got {x}"
 
 instance : Encodable String LightData where
-  encode (s: String) := .atom s.toUTF8
+  encode s := atom s.toUTF8
   decode
-    | atom x => pure (String.fromUTF8Unchecked x)
+    | atom x => return String.fromUTF8Unchecked x
     | x => throw s!"Expected a string but got {x}"
 
 instance : Encodable ByteArray LightData where
@@ -81,9 +79,9 @@ instance : Encodable (List α) LightData where
     | x => throw s!"Expected a list but got {x}"
 
 instance : Encodable (Option α) LightData where
-  encode | none => 0 | some a => cell $ #[hα.encode a]
+  encode | none => false | some a => cell $ #[hα.encode a]
   decode
-    | 0 => pure none
+    | false => pure none
     | cell $ #[x] => return some (← hα.decode x)
     | x => throw s!"Expected an option but got {x}"
 
