@@ -79,9 +79,9 @@ instance : Encodable (List α) LightData where
     | x => throw s!"Expected a list but got {x}"
 
 instance : Encodable (Option α) LightData where
-  encode | none => false | some a => cell $ #[hα.encode a]
+  encode | none => atom ⟨#[]⟩ | some a => cell $ #[hα.encode a]
   decode
-    | false => pure none
+    | atom ⟨#[]⟩ => pure none
     | cell $ #[x] => return some (← hα.decode x)
     | x => throw s!"Expected an option but got {x}"
 
@@ -93,11 +93,11 @@ instance : Encodable (α × β) LightData where
 
 instance : Encodable (Either α β) LightData where
   encode
-    | .left  x => cell #[0, hα.encode x]
-    | .right x => cell #[1,  hβ.encode x]
+    | .left  x => cell #[false, hα.encode x]
+    | .right x => cell #[true,  hβ.encode x]
   decode
-    | cell #[0, x] => return .left (← hα.decode x)
-    | cell #[1,  x] => return .right (← hβ.decode x)
+    | cell #[false, x] => return .left (← hα.decode x)
+    | cell #[true,  x] => return .right (← hβ.decode x)
     | x => throw s!"Expected an either but got {x}"
 
 end EncodableInstances
