@@ -104,21 +104,9 @@ end EncodableInstances
 
 section SerDe
 
-def countBytesCore : Nat → Nat → UInt8 → UInt8
-  | 0, _, x => x
-  | fuel + 1, n, x =>
-    let n := n / 256
-    if n == 0 then x
-    else countBytesCore fuel n (x+1)
-
-def countBytes (n: Nat) : UInt8 :=
-  (countBytesCore (n + 1) n 0)
-
-def uInt8Core : Nat → UInt8 → UInt8
-  | 0, x => x
-  | fuel + 1, x => uInt8Core fuel (x+1)
-
-def toUInt8 (x: Nat): UInt8 := uInt8Core x 0
+def countBytes (n : Nat) : UInt8 :=
+  if n == 0 then 1 else
+  .ofNat $ n.log2 / 8 + 1
 
 /--
 tag format: 0bXYSSSSSS
@@ -131,25 +119,24 @@ tag format: 0bXYSSSSSS
 def tag : LightData → UInt8
   | atom x =>
     if x.isEmpty then 0b00000000 else
-    let ctorBit := 0b00000000
-    let sizeBits := if x.size <= 64 then
-      toUInt8 (0b01000000 + (x.size.land 0b00111111))
-      else countBytes x.size
-    ctorBit + sizeBits
-  | cell x => if x.isEmpty then 0b10000000 else
-    let ctorBit := 0b10000000
-    let sizeBits := if x.size <= 64 then
-      toUInt8 (0b01000000 + (x.size.land 0b00111111))
-      else countBytes x.size
-    ctorBit + sizeBits
+    let size := x.size
+    if size < 64 then 0b01000000 + UInt8.ofNat size else
+    if size == 64 then 0b01000000 else
+    countBytes size
+  | cell x =>
+    if x.isEmpty then 0b10000000 else
+    let size := x.size
+    if size < 64 then 0b11000000 + UInt8.ofNat size else
+    if size == 64 then 0b11000000 else
+    0b10000000 + countBytes size
 
 partial def toByteArray : LightData → ByteArray
   | d@(atom x) => if x.size <= 64
     then .mk #[d.tag] ++ x
     else .mk #[d.tag] ++ x.size.toByteArrayLE ++ x
   | d@(cell x) => if x.size <= 64
-    then x.foldl (·.append ·.toByteArray) ⟨#[d.tag]⟩
-    else x.foldl (·.append ·.toByteArray) ⟨#[d.tag]⟩ ++ x.size.toByteArrayLE
+    then Array.foldl (·.append ·.toByteArray) ⟨#[d.tag]⟩ x
+    else Array.foldl (·.append ·.toByteArray) (⟨#[d.tag]⟩ ++ x.size.toByteArrayLE) x
 
 structure Bytes where
   bytes : ByteArray
