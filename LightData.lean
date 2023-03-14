@@ -52,6 +52,26 @@ instance : Encodable Nat LightData where
     | atom bs => pure bs.asLEtoNat
     | x => throw s!"Expected a numeric value but got {x}"
 
+instance : Encodable Char LightData where
+  encode x := x.toNat
+  decode x := return .ofNat (← Encodable.decode x)
+
+instance : Encodable UInt8 LightData where
+  encode x := x.toNat
+  decode x := return .ofNat (← Encodable.decode x)
+
+instance : Encodable UInt16 LightData where
+  encode x := x.toNat
+  decode x := return .ofNat (← Encodable.decode x)
+
+instance : Encodable UInt32 LightData where
+  encode x := x.toNat
+  decode x := return .ofNat (← Encodable.decode x)
+
+instance : Encodable UInt64 LightData where
+  encode x := x.toNat
+  decode x := return .ofNat (← Encodable.decode x)
+
 instance : Encodable String LightData where
   encode s := atom s.toUTF8
   decode
