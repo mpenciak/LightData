@@ -87,10 +87,10 @@ variable
   [hβ : Encodable β LightData]
 
 instance : Encodable (Array α) LightData where
-  encode x := cell $ x.map hα.encode
+  encode x := cell $ .mk $ x.data.map hα.encode
   decode
-    | cell x => x.mapM hα.decode
-    | x => throw s!"Expected an cellay but got {x}"
+    | cell x => Array.mk <$> (x.data.mapM hα.decode) 
+    | x => throw s!"Expected an array but got {x}"
 
 instance : Encodable (List α) LightData where
   encode x := cell $ .mk $ x.map hα.encode
