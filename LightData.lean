@@ -80,16 +80,16 @@ instance : Encodable String LightData where
 
 instance : Encodable ByteArray LightData where
   encode := atom
-  decode | atom x => pure x | x => throw s!"Expected a atome cellay but got {x}"
+  decode | atom x => pure x | x => throw s!"Expected a byte array but got {x}"
 
 variable
   [hα : Encodable α LightData]
   [hβ : Encodable β LightData]
 
 instance : Encodable (Array α) LightData where
-  encode x := cell $ .mk $ x.data.map hα.encode
+  encode x := cell $ x.map hα.encode
   decode
-    | cell x => Array.mk <$> (x.data.mapM hα.decode) 
+    | cell x => x.mapM hα.decode
     | x => throw s!"Expected an array but got {x}"
 
 instance : Encodable (List α) LightData where
